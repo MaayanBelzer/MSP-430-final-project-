@@ -1,0 +1,223 @@
+#include  <msp430xG46x.h>
+
+    
+            MODULE Arrayconv
+            EXTERN SignalType,Frqarrayw,Frqarrayf,Vmaxarrayw,Vmaxarrayf,Vminarrayw
+            EXTERN Vminarrayf
+            EXTERN PFW,PFF,PVXW,PVXF,PVNW,PVNF
+            EXTERN CFrW,NFrW,CFrf,NFrf,CVmaxf,NVmaxf,CVminf,NVminf,NVmaxW,NVminW
+            PUBLIC arrayconv
+            
+    
+;-------------------------------------------------------------------------------
+               RSEG    CODE                  
+;-------------------------------------------------------------------------------
+arrayconv
+
+;-------------------------------------------------------------------------------
+;               array conv                
+;-------------------------------------------------------------------------------
+
+
+
+
+          mov  PVXW,R15    ;Initialize register with Vmax array of integers
+          mov  0(R15),R9
+          sub  #48,R9 ; converts ASCII value to decimal number
+          
+          mov  R9,R8 ;Multiply Vmax by 100 to get rid of fraction
+          mov  R9,R7
+          rla  R8
+          rla  R8
+          rla  R8
+          rla  R7
+          add  R7,R8
+          mov  R8,R9
+          mov  R9,R7
+          rla  R8
+          rla  R8
+          rla  R8
+          rla  R7
+          add  R7,R8
+          mov  R8,R9
+           
+          mov  R9,NVmaxW ;Move result to variant
+          
+          mov  PVNW,R15 ; Same as Vmax but with Vmin integers
+          mov  0(R15),R9
+          sub  #48,R9
+          mov  R9,R8
+          mov  R9,R7
+          rla  R8
+          rla  R8
+          rla  R8
+          rla  R7
+          add  R7,R8
+          mov  R8,R9
+          mov  R9,R7
+          rla  R8
+          rla  R8
+          rla  R8
+          rla  R7
+          add  R7,R8
+          mov  R8,R9
+          
+          mov  R9,NVminW
+          
+           mov    #5,R10  ;Initialize registers to check how many iterations of multiplication are needed
+           mov    #4,R11
+           sub    CFrW,R10
+           sub    CFrW,R11
+           mov    R11,R12
+           mov    #0,NFrW
+           
+           
+       
+FwL        cmp  #0,R10 ;Checks if all iteration are done
+           jz   FinFW  
+           
+          mov  PFW,R15 ;Initialize register with Frequency array of integers
+          mov  0(R15),R9
+           sub  #48,R9 ;Convert ASCII to decimal number
+           incd  PFW
+
+subFwL     cmp  #0,R11  ;subloop to multiply each digit according to registers 
+           jz   FsubFwL
+           
+           mov  R9,R8
+           mov  R9,R7
+           rla  R8
+           rla  R8
+           rla  R8
+           rla  R7
+           add  R7,R8
+           mov  R8,R9
+           dec  R11
+           jmp  subFwL
+       
+FsubFwL     add  R9,NFrW ;adds result to value of frequency and move to next digit
+            dec R10
+            dec R12
+            mov R12,R11
+            jmp FwL
+           
+       
+           
+FinFW 
+           mov    #2,R10 ;Same as with Frequency array but with 2 digits for Vmax fraction
+           mov    #1,R11
+           sub    CVmaxf,R10
+           sub    CVmaxf,R11
+           mov    R11,R12
+               
+Vmaxf      cmp  #0,R10
+           jz   FinVmaxf  
+           
+          mov  PVXF,R15
+          mov  0(R15),R9
+           sub  #48,R9
+           incd  PVXF
+
+subVmaxf   cmp  #0,R11
+           jz   FsubVmaxf
+           
+           mov  R9,R8
+           mov  R9,R7
+           rla  R8
+           rla  R8
+           rla  R8
+           rla  R7
+           add  R7,R8
+           mov  R8,R9
+           dec  R11
+           jmp  subVmaxf
+       
+FsubVmaxf   add  R9,NVmaxf
+            dec R10
+            dec R12
+            mov R12,R11
+            jmp Vmaxf 
+          
+FinVmaxf          
+         
+           mov    #2,R10 ;Same as with Frequency array but with 2 digits for Vmin fraction
+           mov    #1,R11
+           sub    CVminf,R10
+           sub    CVminf,R11
+           mov    R11,R12
+          
+               
+Vminf      cmp  #0,R10
+           jz   FinVminf  
+           
+          mov  PVNF,R15
+          mov  0(R15),R9
+           sub  #48,R9
+           incd  PVNF
+
+subVminf    cmp  #0,R11
+          jz   FsubVminf
+           
+           mov  R9,R8
+           mov  R9,R7
+           rla  R8
+           rla  R8
+           rla  R8
+           rla  R7
+           add  R7,R8
+           mov  R8,R9
+           dec  R11
+           jmp  subVminf
+       
+FsubVminf   add  R9,NVminf
+            dec R10
+            dec R12
+            mov R12,R11
+            jmp Vminf 
+          
+ 
+
+          
+FinVminf   mov  NVmaxf,R13 ;checks if Vmax fraction has only one digit, if if does, multiply by 10
+           sub  #10,R13
+           jn   MultVX
+           jmp  NVN
+           
+MultVX     mov  NVmaxf,R9
+           mov  R9,R8
+           mov  R9,R7
+           rla  R8
+           rla  R8
+           rla  R8
+           rla  R7
+           add  R7,R8
+           mov  R8,R9
+           mov  R9,NVmaxf
+           
+NVN        mov  NVminf,R13 ;checks if Vmin fraction has only one digit, if if does, multiply by 10
+           sub  #10,R13
+           jn   MultVN
+           jmp  FOFF
+           
+MultVN     mov  NVminf,R9
+           mov  R9,R8
+           mov  R9,R7
+           rla  R8
+           rla  R8
+           rla  R8
+           rla  R7
+           add  R7,R8
+           mov  R8,R9
+           mov  R9,NVminf 
+           
+
+FOFF       add  NVmaxf,NVmaxW ;adds the whole and fraction numbers of Vmax 
+           sub  #15,NVmaxW  ;Fix scope noise
+           add  NVminf,NVminW ;adds the whole and fraction numbers of Vmin
+
+           ret
+           
+
+
+            ENDMOD              
+             END

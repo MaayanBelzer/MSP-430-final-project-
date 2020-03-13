@@ -1,0 +1,52 @@
+#include  <msp430xG46x.h>
+
+    
+            MODULE Div
+            EXTERN Divided,Divisor,op1,op2,res,Quotient,Remainder
+            PUBLIC DIV16bit,mult
+            
+
+;-------------------------------------------------------------------------------
+               RSEG    CODE                  
+;-------------------------------------------------------------------------------
+;-------------------------------------------------------------------------------
+;      Quotient = Divided/Divisor , Remainder=Divided/Divisor
+;-------------------------------------------------------------------------------
+DIV16bit       
+
+                mov     #17,R9
+                clr     R8                ; Quotient register
+                mov.w   Divided,R4        ; Devided registers is R5,R4
+                clr     R5
+                mov.w   Divisor,R6        ; Divisor registers is R6
+                
+L3              rla     R8
+L1              dec     R9
+                jz      L2
+                rla     R4
+                rlc     R5
+                cmp     R6,R5
+                jlo     L3
+                sub     R6,R5
+                setc   
+                rlc     R8
+                jmp     L1
+                
+L2              mov.w   R8,Quotient
+                mov.w   R5,Remainder
+               ret
+
+
+
+mult                                   ; op1,op2 16 bit and res is 32 bit
+           mov.w   op1,&MPY             ; Load first operand-unsigned mult
+           mov.w   op2,&OP2             ; Load second operand 
+           mov.w   &RESLO,res
+           mov.w   #0x02,R5
+           mov.w   &RESHI,res(R5)
+           mov     &RESHI,R14
+           ret
+
+
+               ENDMOD 
+                END

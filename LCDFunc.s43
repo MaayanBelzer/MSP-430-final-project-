@@ -1,0 +1,73 @@
+#include  <msp430xG46x.h>
+
+    
+            MODULE Func
+            EXTERN state,clk,clkc
+            PUBLIC Lcd_strobe,Lcd_data,Lcd_cmd,Wstr,Clear
+            
+    
+;-------------------------------------------------------------------------------
+               RSEG    CODE                  
+;-----------------------------------------------------------------------------
+
+;-------------------------------------------------------------------------------
+;                                 LCD 
+;-------------------------------------------------------------------------------
+
+
+;Delay fuction for LCD: 
+Lcd_strobe  bis.b #0x80,&P3OUT 
+            nop
+            nop
+            bic.b #0x80,&P3OUT
+            ret
+ 
+;Command fuction for LCD: 
+Lcd_cmd     POP R4 ;  POP PC
+            POP R5 ;  POP COMMAND
+            mov.w  #1750,R15 ;wait of 5msec = (3op*1750)/2^20  LCD Debounce 
+L           dec.w  R15                     
+            jnz    L
+            mov.b  R5,&P5OUT
+            call   #Lcd_strobe
+            PUSH.W   R4
+            ret
+            
+;Print letter fuction for LCD:  
+Lcd_data   POP R4 ;  POP PC
+           POP R5 ;  POP VALUE
+           mov.w  #1750,R15 ;wait of 5msec = (3op*1750)/2^20  LCD Debounce 
+Ld         dec.w  R15                     
+           jnz    Ld
+           clr.b  &P5OUT
+           bis.b  #0x20,&P3OUT
+           mov.b  R5,&P5OUT
+           call   #Lcd_strobe
+           bic.b  #0x20,&P3OUT
+           PUSH.W   R4
+           ret
+ 
+
+;Print string fuction for LCD: 
+Wstr      POP     R8  ;  POP main PC
+          POP     R6
+Lstr      mov.b   @R6,R7
+          cmp     #0,R7
+          jz      Fstr
+          PUSH.W    R7
+          call    #Lcd_data
+          inc     R6
+          jmp Lstr
+
+
+Fstr      PUSH.W    R8
+          ret
+
+
+           
+Clear     ret            
+            
+            
+            
+            ENDMOD              
+             END

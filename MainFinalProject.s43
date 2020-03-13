@@ -1,0 +1,1359 @@
+#include  <msp430xG46x.h>
+           NAME main  
+           PUBLIC main,MainState,SubMainState,SSM1,PSI1,PSI2,PSI3,PSI4,PSI5,PSI6
+           PUBLIC PSI7,PSI8,PSI9,PSI10,PSI11,PSI12,PSI13,PSI14,PSI15,PSI16,PSI17,PSI18
+           PUBLIC SignalType,PFW,PFF,PVXW,PVXF,PVNW,PVNF,Cnt5,Cnt1,Cnt2
+           PUBLIC CFrW,NFrW,CFrf,NFrf,CVmaxf,NVmaxf,CVminf,NVminf,NVmaxW,NVminW
+           PUBLIC Divided,Divisor,Quotient,Remainder,Fclk,Divnum,op1,op2,res,Mconst,Sin_Tab,SinP
+           EXTERN Lcd_strobe,Lcd_data,Lcd_cmd,Wstr,Clear,UP,DOWN,arrayconv,DIV16bit,mult
+
+
+Debounce     MACRO  cycles
+             LOCAL  L
+             mov.w  cycles,R15     
+L            dec.w  R15                     
+             jnz    L
+             ENDM
+;-------------------------------------------------------------------------------
+              ORG     0x1100                  ; Begins a RAM segment
+;-------------------------------------------------------------------------------
+MainState     DW   0    ;Initializing variants
+SubMainState  DW   0
+SignalType    DW   2
+Stm3          DW   1
+Sdot          DW   0
+Sbuzz         DW   0
+SSM1          DW   0
+SSM2          DW   0
+Frqarrayw     DS16  5
+Frqarrayf     DS16  2
+Vmaxarrayw    DS16  1
+Vmaxarrayf    DS16  2
+Vminarrayw    DS16  1
+Vminarrayf    DS16  2
+PFW           DS16 1
+PFF           DS16 1
+PVXW          DS16 1
+PVXF          DS16 1
+PVNW          DS16 1
+PVNF          DS16 1
+Cnt5          DW   4
+Cnt2          DW   2
+Cnt1          DW   1
+CFrW          DW   0
+NFrW          DW   0
+CFrf          DW   0
+NFrf          DW   0
+CVmaxf        DW   0
+NVmaxf        DW   0
+NVmaxW        DW   0
+CVminf        DW   0
+NVminf        DW   0
+NVminW        DW   0
+Divided       DW   0
+Divisor       DW   0
+Quotient      DW   0
+Remainder     DW   0
+Fclk          DW   0
+SinP          DW   0
+SawtoothP     DW   0
+TriangularP   DW   0
+PWMP          DW   0
+Divnum        DW    10
+op1           DW    1
+op2           DW    1
+res           DL    1
+Mconst        DL    1
+Samplearray   DS16    33
+SamplearrayP  DW  0
+Samplenum     DW   34
+KP            DB   'k'
+KB            DB   'k' ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+S1            DB   "1.Instructions"
+S2            DB   "2.Digital Generator"
+S2_1          DB   "igital Generator"
+S3            DB   "3.Signal Parameters"
+S3_1          DB   "ignal Parameters"
+S4            DB   "4.Quit"
+PS1           DS16 1   
+PS2           DS16 1
+PS2_1         DS16 1
+PS3_1         DS16 1
+PS3           DS16 1
+PS4           DS16 1
+SI1           DB    "Wave Emmited:"
+NAN           DS8  1
+SI2           DB    "From DAC0"
+SI3           DB    "Valid Frequency"
+SI4           DB    "Range: 0-5kHZ"
+SI5           DB    "Valid Amplitude"
+SI6           DB    "Range: 0v-1.65v"
+SI7           DB    "Purpose: Generate"
+SI8           DB    "Computized Wave"
+SI9           DB    "In Main Menu:"
+SI10          DB    "Push 2 to choose"
+SI11          DB    "type of wave,"
+SI12          DB    "push 3 to input"
+SI13          DB    "wave parameters"
+SI14          DB    "(frequency,Vmax"
+SI15          DB    ",Vmin,Offset),"
+SI16          DB    "push 4 to quit."
+SI17          DB    "To return,"
+SI18          DB    "push PB0."
+PSI1          DS16 1
+PSI2          DS16 1
+PSI3          DS16 1
+PSI4          DS16 1
+PSI5          DS16 1
+PSI6          DS16 1
+PSI7          DS16 1
+PSI8          DS16 1
+PSI9          DS16 1
+PSI10         DS16 1
+PSI11         DS16 1
+PSI12         DS16 1
+PSI13         DS16 1
+PSI14         DS16 1
+PSI15         DS16 1
+PSI16         DS16 1
+PSI17         DS16 1
+PSI18         DS16 1
+SD1           DB    "Choose wave type"
+SD2           DB    "1.PWM   2.Sine"
+SD3           DB    "3.Sawtooth"
+SD4           DB    "4.Triangular"
+PSD1          DS16 1
+PSD2          DS16 1
+PSD3          DS16 1
+PSD4          DS16 1
+SP1           DB    "Frequency:"
+KA            DB   'k';;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+SP2           DB    "Vmax:" 
+SP3           DB    "Vmin:" 
+SP4           DB    "Offset:" 
+PSP1          DS16 1
+PSP2          DS16 1
+PSP3          DS16 1
+PSP4          DS16 1
+KD            DB   'k';;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+SQ1           DB    "CPU is asleep."
+PSQ1          DS16 1
+Sbz1          DB    "Push PB1 to turn"
+Sbz2          DB    "wavegen on/off"
+PSbz1         DS16 1
+PSbz2         DS16 1        
+D15           EQU  5250  ;wait of 15msec = (3op*5250)/2^20 LCD Debounce
+D5            EQU  1750  ;wait of 5msec = (3op*1750)/2^20  LCD Debounce
+D200          EQU  70  ;wait of 200usec = (3op*70)/2^20 LCD Debounce
+PullUp        EQU  280  ;wait of 0.8msec = (3op*280)/2^20
+PullDown      EQU  70   ;wait of 0.2msec = (3op*70)/2^20
+
+;-------------------------------------------------------------------------------
+               RSEG    CSTACK                  ; Begins a relocatable segment name of CSTACK - Define stack segment
+;-------------------------------------------------------------------------------
+               RSEG    CODE                    ; Assemble to Flash memory -like void main in C
+;-----------------------------------------------------------------------------
+main           mov.w   #SFE(CSTACK),SP          ; Initialize stack pointer
+StopWDT        mov.w   #WDTPW+WDTHOLD,&WDTCTL     
+SetupFLL       bis.b   #XCAP14PF,&FLL_CTL0     ; Configure load caps
+
+OFIFGcheck  bic.b   #OFIFG,&IFG1            ; Clear OFIFG
+            mov.w   #047FFh,R15             ; Wait for OFIFG to set again if
+OFIFGwait   dec.w   R15                     ; not stable yet
+            jnz     OFIFGwait
+            bit.b   #OFIFG,&IFG1            ; Has it set again?
+            jnz     OFIFGcheck              ; If so, wait some more
+
+;-------------------------------------------------------------------------------
+;                                 LCD CONFIG
+;-------------------------------------------------------------------------------
+SetupP3       bic.b     #0xE0,&P3SEL  ;Setup LCD E,RS,RW
+              bis.b     #0xE0,&P3DIR 
+              clr.b       &P3OUT
+
+
+SetupP5       bic.b     #0xff,&P5SEL  ;Setup LCD data
+              bis.b     #0xff,&P5DIR 
+              clr.b       &P5OUT
+
+              Debounce #D15
+              
+              mov.b       #0x3F,&P5OUT
+              call      #Lcd_strobe
+          
+              Debounce #D5
+              
+              mov.b       #0x3F,&P5OUT
+              call      #Lcd_strobe
+              
+              Debounce #D200
+              
+              mov.b       #0x3F,&P5OUT
+              call      #Lcd_strobe
+              PUSH.W      #0x3C
+              call      #Lcd_cmd
+              PUSH.W      #0x0F
+              call      #Lcd_cmd
+              PUSH      #0x01
+              call      #Lcd_cmd
+              PUSH.W      #0x06
+              call      #Lcd_cmd
+              PUSH.W      #0x80
+              call      #Lcd_cmd
+              PUSH      #0x02
+              call      #Lcd_cmd
+              
+              
+             
+              mov       #S1,PS1   ;Initializing pointers
+              mov       #S2,PS2
+              mov       #S2_1,PS2_1
+              mov       #S3,PS3
+              mov       #S3_1,PS3_1
+              mov       #S4,PS4
+              
+              PUSH.W      PS1    ;initializing LCD screen
+              call      #Wstr
+              PUSH.W      #0xC0          
+              call      #Lcd_cmd
+              PUSH.W      PS2
+              call      #Wstr
+              PUSH.W     #0x0C
+             call     #Lcd_cmd
+             
+
+              
+
+                
+
+;-------------------------------------------------------------------------------
+;                                 Keypad CONFIG
+;-------------------------------------------------------------------------------
+SetupP4       bic.b     #0xff,&P10SEL              ;Keypad CONFIG
+              bis.b     #0x0f,&P10DIR
+              bic.b     #0xf0,&P10DIR
+              clr.b     &P10OUT
+
+SetupP2      bic.b   #0x80,&P2SEL                ;Keypad interrupt CONFIG
+             bic.b   #0x80,&P2DIR
+             bis.b   #0x80,&P2IES
+             bis.b   #0x80,&P2IE
+             bic.b   #0x80,&P2IFG                ; reset of interrupt flag 
+             mov     #GIE,SR
+
+;-------------------------------------------------------------------------------
+;                                 PB CONFIG
+;-------------------------------------------------------------------------------
+
+SetupP1      bic.b   #0xf0,&P1SEL                ;Keypad interrupt CONFIG
+             bic.b   #0xf0,&P1DIR
+             bis.b   #0x30,&P1IES
+             bic.b   #0xC0,&P1IES
+             bis.b   #0xf0,&P1IE
+             bic.b   #0xf0,&P1IFG                ; reset of interrupt flag 
+             
+
+
+
+
+;-------------------------------------------------------------------------------
+;                                 Main code
+;-------------------------------------------------------------------------------
+             
+             mov #SI1,PSI1 ;Initializing pointers
+             mov #SI2,PSI2
+             mov #SI3,PSI3
+             mov #SI4,PSI4
+             mov #SI5,PSI5
+             mov #SI6,PSI6
+             mov #SI7,PSI7
+             mov #SI8,PSI8
+             mov #SI9,PSI9
+             mov #SI10,PSI10
+             mov #SI11,PSI11
+             mov #SI12,PSI12
+             mov #SI13,PSI13
+             mov #SI14,PSI14
+             mov #SI15,PSI15
+             mov #SI16,PSI16
+             mov #SI17,PSI17
+             mov #SI18,PSI18
+             mov #SD1,PSD1
+             mov #SD2,PSD2
+             mov #SD3,PSD3
+             mov #SD4,PSD4
+             mov #SP1,PSP1
+             mov #SP2,PSP2
+             mov #SP3,PSP3
+             mov #SP4,PSP4
+             mov #SQ1,PSQ1
+             mov #Sbz1,PSbz1
+             mov #Sbz2,PSbz2
+             mov #Frqarrayw,PFW
+             mov #Frqarrayf,PFF
+             mov #Vmaxarrayw,PVXW
+             mov #Vmaxarrayf,PVXF
+             mov #Vminarrayw,PVNW
+             mov #Vminarrayf,PVNF
+          
+     
+ 
+Sleep        bis.w     #CPUOFF+GIE,SR   ;LPM0 sleep
+	     nop 
+             
+             
+            
+             call     #arrayconv       ;converting ASCII values to integers
+             sub      NVminW,NVmaxW;   Moving Vp-p to NVmaxW
+           
+             
+             mov      NVminW,op1 ;Calculating constant for Dac 
+             mov      #4095,op2
+             call     #mult
+             rra     res
+             rra     res
+             rra     res
+             rra     res
+             rra     res
+            
+            rla     R14
+            rla     R14
+            rla     R14
+            rla     R14
+            rla     R14
+            rla     R14
+            rla     R14
+            rla     R14
+            rla     R14
+            rla     R14
+            rla     R14
+            
+            add     res,R14
+             mov  R14,Divided
+             mov  Divnum,Divisor
+             call    #DIV16bit
+             mov   Quotient,Mconst
+           
+             
+             mov      NFrW,Divisor  ;Calculating frequency
+             cmp      #1,SignalType
+             jz       PWMC
+             mov      #31775,Divided
+             jmp      DivF
+            
+
+PWMC         mov      #65535,Divided  ;PWM frequency
+           
+            
+             rra      Divisor
+             rra      Divisor
+             rra      Divisor
+            
+            
+DivF         call     #DIV16bit
+             mov      Quotient,Fclk
+             cmp      #1,SignalType
+             jnz      NotPWM
+             mov      #2,R6         ;number of samples of PWM
+             jmp     SetupDAC12_0
+
+NotPWM
+
+
+            
+            mov   #33,R6  ;number of samples other than PWM
+
+
+;-------------------------------------------------------------------------------
+;                                 DAC CONFIG
+;-------------------------------------------------------------------------------
+
+
+SetupDAC12_0   	mov.w   #DAC12IR+DAC12AMP_5+DAC12SREF1,&DAC12_0CTL
+
+
+
+;-------------------------------------------------------------------------------
+;                                 samplearray CONFIG 
+;-------------------------------------------------------------------------------'
+
+PWM            cmp    #1,SignalType
+               jnz    Sine
+               mov    #PWM_Tab,PWMP
+               mov    PWMP,R15
+               jmp  Finsignal
+                
+
+Sine          cmp    #2,SignalType
+              jnz    Sawtooth
+              mov  #Sin_Tab,SinP
+              mov  SinP,R15
+              jmp  Finsignal
+
+Sawtooth      cmp    #3,SignalType
+              jnz    Triangular
+              mov  #Sawtooth_Tab,SawtoothP
+              mov  SawtoothP,R15
+              jmp  Finsignal
+
+
+Triangular    cmp    #4,SignalType
+              jnz    Finsignal
+              mov  #Triangular_Tab,TriangularP
+              mov  TriangularP,R15
+
+Finsignal        
+              mov  #Samplearray,SamplearrayP
+              mov  SamplearrayP,R12
+              cmp  #1,SignalType
+              jz   SnPWM
+              mov  #34,Samplenum
+              jmp  St
+SnPWM         mov  #3,Samplenum
+St            dec  Samplenum
+              jnz  Startconv
+              cmp  #1,SignalType
+              jz   RPWM
+              mov  #34,Samplenum
+              jmp  endconv
+RPWM          mov  #3,Samplenum
+              jmp  endconv
+              
+Startconv     mov    0(R15),R8   ; Converting samples according to calculation for DAC
+            
+            mov   NVmaxW,op1 
+            mov   R8,op2
+            call    #mult   
+            rra     res
+            rra     res
+            rra     res
+            rra     res
+            rra     res
+            
+            rla     R14
+            rla     R14
+            rla     R14
+            rla     R14
+            rla     R14
+            rla     R14
+            rla     R14
+            rla     R14
+            rla     R14
+            rla     R14
+            rla     R14
+            
+            add     res,R14
+            mov   R14,Divided
+            mov   Divnum,Divisor
+            call    #DIV16bit
+            mov   Quotient,R9
+            add   Mconst,R9
+            mov   R9,0(R12)
+            incd  R12
+            incd  R15
+            jmp   St
+
+
+
+endconv    mov  #Sin_Tab,SinP
+           mov  #Samplearray,R12
+
+            
+
+
+;-------------------------------------------------------------------------------             
+   
+       
+Mainloop     cmp      #1,Sbuzz    ;Checking the state of the buzzer
+             jnz      Sb0
+            
+             jmp      SetupBT 
+             
+             
+Sb0          clr      &DAC12_0DAT 
+              
+              
+             mov      #Frqarrayw,PFW ;Initializing pointers
+             mov      #Frqarrayf,PFF
+             mov      #Vmaxarrayw,PVXW
+             mov      #Vmaxarrayf,PVXF
+             mov      #Vminarrayw,PVNW
+             mov      #Vminarrayf,PVNF
+             
+             mov      #2,Cnt2 ;Initializing constants
+             mov      #1,Cnt1
+             mov      #0,Sdot
+             mov      #4,Cnt5
+
+             mov      #0,NVmaxf ;Initializing Vmax and Vmin
+             mov      #0,NVmaxW
+             mov      #0,NVminf
+             mov      #0,NVminW
+             mov      #1,Stm3   ;Initializing sub-state 3
+              
+              jmp      Sleep             
+             
+
+
+;-------------------------------------------------------------------------------
+;                                 clk CONFIG
+;-------------------------------------------------------------------------------
+
+
+
+SetupBT       mov.w  #TBSSEL_2+MC_1,&TBCTL  ;Setup Timer B
+              mov.w  #CCIE,&TBCCTL0
+              mov.w  Fclk,&TBCCR0
+              
+              jmp Sleep
+
+
+
+          
+             
+             
+
+;------------------------------------------------------------------------------------------ 
+;               PORT1 Interrupt Service Routine - PB
+;------------------------------------------------------------------------------------------
+PORT1_ISR    Debounce #D15
+             Debounce #D15
+             Debounce #D15
+            
+             
+             bit.b    #0x10,&P1IFG   ;check if P1.0 is pushed
+             jnz      P1_0 
+             bit.b    #0x20,&P1IFG   ;check if P1.1 is pushed
+             jnz      P1_1
+             bit.b    #0x40,&P1IFG   ;check if P1.2 is pushed
+             jnz      P1_2
+             bit.b    #0x80,&P1IFG   ;check if P1.3 is pushed
+             jnz      P1_3
+             reti       
+
+P1_0         bic.b    #0x10,&P1IFG  
+             cmp      #0,SubMainState           ;Checking if we're on main menu
+             jnz      Back
+             cmp      #0,MainState             ;Checking different states for scrolling right   
+             jnz      MR1
+             PUSH.W     #0x01
+             call     #Lcd_cmd
+             PUSH.W     PS1
+             call     #Wstr
+             PUSH.W     #0xC0         
+             call     #Lcd_cmd
+             PUSH.W     PS2_1
+             call     #Wstr
+             bic.b    #0x10,&P1IFG 
+             reti
+             
+MR1          cmp      #1,MainState 
+             jnz      MR2
+             PUSH     #0x01
+             call     #Lcd_cmd
+             PUSH.W     PS2_1
+             call     #Wstr
+             PUSH.W     #0xC0         
+             call     #Lcd_cmd
+             PUSH.W     PS3_1
+             call     #Wstr
+             bic.b    #0x10,&P1IFG 
+             reti 
+
+MR2          cmp      #2,MainState 
+             jnz      FRIGHT
+             PUSH     #0x01
+             call     #Lcd_cmd
+             PUSH.w     PS3_1
+             call     #Wstr
+             PUSH.W     #0xC0         
+             call     #Lcd_cmd
+             PUSH.W     PS4
+             call     #Wstr
+FRIGHT       bic.b    #0x10,&P1IFG 
+             reti              
+             
+Back         mov      #Frqarrayw,PFW  ;Going back to main menu, Initializing pointers
+             mov      #Frqarrayf,PFF
+             mov      #Vmaxarrayw,PVXW
+             mov      #Vmaxarrayf,PVXF
+             mov      #Vminarrayw,PVNW
+             mov      #Vminarrayf,PVNF
+             mov      #2,Cnt2  ;Initializing constants
+             mov      #1,Cnt1
+             mov      #0,Sdot
+             mov      #4,Cnt5
+             mov      #0,MainState  ;initializing states
+             mov      #0,SubMainState
+             mov      #0,NVmaxf    ;inizializing V values
+             mov      #0,NVmaxW
+             mov      #0,NVminf
+             mov      #0,NVminW
+             mov      #1,Stm3
+             mov      #0,Sbuzz
+             PUSH.W     #0x01
+             call     #Lcd_cmd
+             PUSH.W     PS1
+             call     #Wstr
+             PUSH.W     #0xC0          
+             call     #Lcd_cmd
+             PUSH.W     PS2
+             call     #Wstr
+             jmp      FRIGHT
+            
+
+P1_1         
+             bic.b    #0x20,&P1IFG  
+             cmp      #0,SubMainState       ;Checking if we're on main menu     
+             jnz      Buzz
+             cmp      #0,MainState         ;Checking different states for scrolling left
+             jnz      ML1
+             PUSH     #0x01
+             call     #Lcd_cmd
+             PUSH.W     PS1
+             call     #Wstr
+             PUSH.W     #0xC0         
+             call     #Lcd_cmd
+             PUSH.W     PS2
+             call     #Wstr
+             bic.b    #0x20,&P1IFG 
+             reti
+             
+ML1          cmp      #1,MainState 
+             jnz      ML2
+             PUSH.W     #0x01
+             call     #Lcd_cmd
+             PUSH.W     PS2
+             call     #Wstr
+             PUSH.W     #0xC0         
+             call     #Lcd_cmd
+             PUSH.W     PS3
+             call     #Wstr
+             bic.b    #0x20,&P1IFG 
+             reti 
+
+ML2          cmp      #2,MainState 
+             jnz      FLEFT
+             PUSH.W     #0x01
+             call     #Lcd_cmd
+             PUSH.W     PS3
+             call     #Wstr
+             PUSH.W     #0xC0         
+             call     #Lcd_cmd
+             PUSH.W     PS4
+             call     #Wstr
+FLEFT        bic.b    #0x20,&P1IFG 
+             reti
+
+Buzz         cmp      #3,SubMainState 
+             jnz      FLEFT
+             xor      #1,Sbuzz   ;Change state of buzzer, if 1, turn off TB and buzzer, if 0, turn buzzer on
+             cmp      #0,Sbuzz   
+             jnz      Buzzon
+             bic      #CCIE,&TBCCTL0
+             bic.b    #0x20,&P1IFG
+             reti
+Buzzon       bic.b    #0x20,&P1IFG
+             bic.w    #CPUOFF,0(SP)
+             reti      
+
+
+P1_2         
+             cmp       #0,SubMainState            ;Checking if we're on main menu   
+             jnz       SMUP
+           
+             cmp       #0,MainState      ;Checking different states for scrolling up on main menu
+             jnz       MU1
+             mov       #3,MainState
+             PUSH.W      #0x01
+             call      #Lcd_cmd
+             PUSH.W      PS4
+             call      #Wstr
+             PUSH.W      #0xC0          
+             call      #Lcd_cmd
+             PUSH.W      PS1
+             call      #Wstr
+             bic.b     #0x40,&P1IFG
+             reti
+           
+           
+MU1          cmp       #1,MainState 
+             jnz       MU2
+             mov       #0,MainState
+             PUSH.W      #0x01
+             call      #Lcd_cmd
+             PUSH.W      PS1
+             call      #Wstr
+             PUSH.W      #0xC0          
+             call      #Lcd_cmd
+             PUSH.W      PS2
+             call      #Wstr
+             bic.b     #0x40,&P1IFG
+             reti
+             
+           
+MU2          cmp       #2,MainState 
+             jnz       MU3
+             mov       #1,MainState
+             PUSH.W      #0x01
+             call      #Lcd_cmd
+             PUSH.W      PS2
+             call      #Wstr
+             PUSH.W      #0xC0          
+             call      #Lcd_cmd
+             PUSH.W      PS3
+             call      #Wstr
+             bic.b     #0x40,&P1IFG
+             reti
+           
+           
+MU3          cmp       #3,MainState 
+             jnz       FUP
+             mov       #2,MainState
+             PUSH.W      #0x01
+             call      #Lcd_cmd
+             PUSH.W      PS3
+             call      #Wstr
+             PUSH.W      #0xC0         
+             call      #Lcd_cmd
+             PUSH.W      PS4
+             call      #Wstr
+FUP          bic.b     #0x40,&P1IFG
+             reti
+             
+SMUP         cmp       #1,SubMainState   ;if we're in Intructions, call scrolling up fuction
+             jnz       SMU2
+             call      #UP
+             jmp       FUP
+             
+             
+             
+             
+             
+             
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;             
+SMU2         cmp       #2,SubMainState ;if we're in Digital Generator, scroll up according to state
+             jnz       FUP
+             cmp       #0,SSM2
+             jnz       StateSm2U
+             PUSH.W      #0x01
+             call      #Lcd_cmd
+             PUSH.W      PSD3
+             call      #Wstr
+             PUSH.W      #0xC0         
+             call      #Lcd_cmd
+             PUSH.W      PSD4
+             call      #Wstr
+             mov       #1,SSM2
+             jmp       FUP
+            
+             
+StateSm2U    PUSH.W      #0x01
+             call      #Lcd_cmd
+             PUSH.W      PSD1
+             call      #Wstr
+             PUSH.W      #0xC0         
+             call      #Lcd_cmd
+             PUSH.W      PSD2
+             call      #Wstr
+             mov       #0,SSM2             
+             jmp       FUP    
+             
+
+P1_3         
+             cmp       #0,SubMainState            ;Checking if we're on main menu   
+             jnz       SMDOWN
+            
+             cmp       #0,MainState     ;Checking different states for scrolling down on main menu, and the rest is like PB2
+             jnz       MD1
+             mov       #1,MainState
+             PUSH.W      #0x01
+             call      #Lcd_cmd
+             PUSH.W      PS2
+             call      #Wstr
+             PUSH.W      #0xC0          
+             call      #Lcd_cmd
+             PUSH.W      PS3
+             call      #Wstr
+             bic.b     #0x80,&P1IFG
+             reti
+           
+           
+MD1          cmp       #1,MainState 
+             jnz       MD2
+             mov       #2,MainState
+             PUSH.W      #0x01
+             call      #Lcd_cmd
+             PUSH.W      PS3
+             call      #Wstr
+             PUSH.W      #0xC0          
+             call      #Lcd_cmd
+             PUSH.W      PS4
+             call      #Wstr
+             bic.b     #0x80,&P1IFG
+             reti
+           
+MD2          cmp       #2,MainState 
+             jnz       MD3
+             mov       #3,MainState
+             PUSH.W      #0x01
+             call      #Lcd_cmd
+             PUSH.W      PS4
+             call      #Wstr
+             PUSH.W      #0xC0         
+             call      #Lcd_cmd
+             PUSH.W      PS1
+             call      #Wstr
+             bic.b     #0x80,&P1IFG
+             reti
+             
+             
+             
+MD3          cmp       #3,MainState 
+             jnz       FDOWN
+             mov       #0,MainState
+             PUSH.W      #0x01
+             call      #Lcd_cmd
+             PUSH.W      PS1
+             call      #Wstr
+             PUSH.W      #0xC0         
+             call      #Lcd_cmd
+             PUSH.W      PS2
+             call      #Wstr
+FDOWN        bic.b     #0x80,&P1IFG
+             reti 
+            
+SMDOWN       cmp       #1,SubMainState
+             jnz       SMD2
+             call      #DOWN
+             jmp       FDOWN
+             
+
+
+SMD2         cmp       #2,SubMainState
+             jnz       FDOWN
+             cmp       #0,SSM2
+             jnz       StateSm2
+             PUSH.W      #0x01
+             call      #Lcd_cmd
+             PUSH.W      PSD3
+             call      #Wstr
+             PUSH.W      #0xC0         
+             call      #Lcd_cmd
+             PUSH.W      PSD4
+             call      #Wstr
+             mov       #1,SSM2
+             jmp       FDOWN
+             
+             
+StateSm2     PUSH.W      #0x01
+             call      #Lcd_cmd
+             PUSH.W      PSD1
+             call      #Wstr
+             PUSH.W      #0xC0         
+             call      #Lcd_cmd
+             PUSH.W      PSD2
+             call      #Wstr
+             mov       #0,SSM2             
+             jmp       FDOWN
+
+
+;------------------------------------------------------------------------------------------ 
+;               PORT2 Interrupt Service Routine  - Keypad
+;------------------------------------------------------------------------------------------
+PORT2_ISR    Debounce #D15
+             Debounce #D15
+             Debounce #D15
+            
+             mov.b    #0x0E,&P10OUT   ;Checing which key was pressed
+             
+             bit.b    #0x10, &P10IN
+             jnz      Ro3Co2
+             mov      #'D',KP
+             jmp      F
+Ro3Co2       bit.b    #0x20, &P10IN
+             jnz      Ro3Co1
+             mov      #'#',KP
+             jmp      F
+Ro3Co1       bit.b    #0x40, &P10IN
+             jnz      Ro3Co0
+             mov      #'0',KP
+             jmp      F
+Ro3Co0       bit.b    #0x80, &P10IN
+             jnz      Ro2
+             mov      #'.',KP
+             jmp      F
+             
+Ro2          mov.b    #0x0D,&P10OUT
+             
+             bit.b    #0x10, &P10IN
+             jnz      Ro2Co2
+             mov      #'C',KP
+             jmp      F
+Ro2Co2       bit.b    #0x20, &P10IN
+             jnz      Ro2Co1
+             mov      #'9',KP
+             jmp      F
+Ro2Co1       bit.b    #0x40, &P10IN
+             jnz      Ro2Co0
+             mov      #'8',KP
+             jmp      F
+Ro2Co0       bit.b    #0x80, &P10IN
+             jnz      Ro1
+             mov      #'7',KP
+             jmp      F
+             
+          
+             
+Ro1          mov.b    #0x0B,&P10OUT
+             
+             bit.b    #0x10, &P10IN
+             jnz      Ro1Co2
+             mov      #'B',KP
+             jmp      F
+Ro1Co2       bit.b    #0x20, &P10IN
+             jnz      Ro1Co1
+             mov      #'6',KP
+             jmp      F
+Ro1Co1       bit.b    #0x40, &P10IN
+             jnz      Ro1Co0
+             mov      #'5',KP
+             jmp      F
+Ro1Co0       bit.b    #0x80, &P10IN
+             jnz      Ro0
+             mov      #'4',KP
+             jmp      F
+             
+             
+Ro0          mov.b    #0x07,&P10OUT
+             
+             bit.b    #0x10, &P10IN
+             jnz      Ro0Co2
+             mov      #'A',KP
+             jmp      F
+Ro0Co2       bit.b    #0x20, &P10IN
+             jnz      Ro0Co1
+             mov      #'3',KP
+             jmp      F
+Ro0Co1       bit.b    #0x40, &P10IN
+             jnz      Ro0Co0
+             mov      #'2',KP
+             jmp      F
+Ro0Co0       bit.b    #0x80, &P10IN
+             jnz      F
+             mov      #'1',KP
+
+
+F            cmp      #0,SubMainState ;If in main menu, enter sub menu and print on LCD accordingly and change state
+             jnz      Sm2
+             cmp      #'1',KP
+             jnz      B2
+             PUSH.W     #0x01
+             call     #Lcd_cmd
+             PUSH.W     PSI1
+             call     #Wstr
+             PUSH.W     #0xC0         
+             call     #Lcd_cmd
+             PUSH.W     PSI2
+             call     #Wstr
+             mov      #1,SubMainState
+             jmp      Ex
+             
+            
+B2           cmp      #'2',KP
+             jnz      B3
+             PUSH.W     #0x01
+             call     #Lcd_cmd
+             PUSH.W     PSD1
+             call     #Wstr
+             PUSH.W     #0xC0         
+             call     #Lcd_cmd
+             PUSH.W     PSD2
+             call     #Wstr
+             mov      #2,SubMainState
+             jmp      Ex
+             
+             
+             
+B3           cmp      #'3',KP
+             jnz      B4
+             PUSH     #0x01
+             call     #Lcd_cmd
+             PUSH.W     PSP1
+             call     #Wstr
+             PUSH.W     #0xC0         
+             call     #Lcd_cmd
+             mov      #3,SubMainState
+             jmp      Ex
+             
+             
+B4           cmp       #'4',KP
+             jnz       Ex
+             PUSH.W      #0x01
+             call      #Lcd_cmd
+             PUSH.W      PSQ1
+             call      #Wstr
+             mov       #4,SubMainState
+             jmp       Ex
+             
+
+
+             
+             
+Sm2          cmp       #2,SubMainState    ;If in Digital Generator, choose signal type
+             jnz       Sm3
+             cmp       #'1',KP
+             jnz       Sig2
+             mov       #1,SignalType
+             jmp       Ex 
+Sig2         cmp       #'2',KP
+             jnz       Sig3
+             mov       #2,SignalType
+             jmp       Ex 
+Sig3         cmp       #'3',KP
+             jnz       Sig4
+             mov       #3,SignalType
+             jmp       Ex 
+Sig4         cmp       #'4',KP
+             jnz       Ex
+             mov       #4,SignalType
+             jmp       Ex             
+            
+            
+             
+Sm3          cmp       #3,SubMainState ;Check if in Signal Parameters, if it is, insert frequency
+             jnz       Ex
+             PUSH.W    #0x0F
+             call      #Lcd_cmd
+             cmp       #1,Stm3
+             jnz       Vmax
+             cmp       #'A',KP  ;if 'A' is pressed, continue to next parameter
+             jz        Next1
+             cmp       #'.',KP  ;checks if '.' is pressed, changes state and prints '.'
+             jnz       Wdigit              
+             PUSH.W      KP
+             call      #Lcd_data
+             mov       #1,Sdot
+             jmp       Ex
+Wdigit       cmp       #0,Sdot ;checks if number pressed is before or after the point and inserts value to right array, and print to LCD
+             jnz       Ff
+             cmp       #0,Cnt5
+             jz        Ex
+             mov       PFW,R15
+             mov       KP,0(R15)
+             PUSH.W      KP
+             call      #Lcd_data
+             incd       PFW
+             dec       Cnt5
+             jmp       Ex
+             
+
+Ff           cmp       #0,Cnt2
+             jz        Ex
+             mov       PFF,R15
+             mov       KP,0(R15)
+             incd       PFF
+             dec       Cnt2
+             PUSH.W      KP
+             call      #Lcd_data
+             jmp       Ex
+             
+Next1        inc      Cnt5    ;Move number of digits in arrays for whole and fractional numbers 
+             mov      Cnt5,CFrW
+             mov      Cnt2,CFrf
+
+             mov       #4,Cnt5  ;initialize counters, pointers and change states for next parameter
+             mov       #2,Cnt2
+             mov       #Frqarrayw,PFW
+             mov       #Frqarrayf,PFF
+             mov       #2,Stm3
+             mov       #0,Sdot
+             PUSH.W      #0x01
+             call      #Lcd_cmd
+             PUSH.W      PSP2
+             call      #Wstr
+             PUSH.W      #0xC0
+             call      #Lcd_cmd
+             jmp       Ex
+             
+Vmax         cmp       #2,Stm3 ;The same as frequency
+             jnz       Vmin
+             cmp       #'A',KP
+             jz        Next2            
+             cmp       #'.',KP
+             jnz       WdigitVmax
+             PUSH.W      KP
+             call      #Lcd_data
+             mov       #1,Sdot
+             jmp       Ex
+WdigitVmax   cmp       #0,Sdot
+             jnz       FVmax 
+             cmp       #0,Cnt1
+             jz        Ex
+             mov       PVXW,R15
+             mov       KP,0(R15)
+             incd      PVXW
+             PUSH.W      KP
+             call      #Lcd_data
+             dec       Cnt1
+             jmp       Ex
+
+FVmax        cmp       #0,Cnt2
+             jz        Ex
+             mov       PVXF,R15
+             mov       KP,0(R15)
+             incd      PVXF
+             dec       Cnt2
+             PUSH.W      KP
+             call      #Lcd_data
+             jmp       Ex
+             
+Next2        mov       Cnt2,CVmaxf
+             mov       #1,Cnt1
+             mov       #2,Cnt2
+             mov       #Vmaxarrayw,PVXW
+             mov       #Vmaxarrayf,PVXF
+             mov       #0,Sdot
+             mov       #3,Stm3
+             PUSH      #0x01
+             call      #Lcd_cmd
+             PUSH.W      PSP3
+             call      #Wstr
+             PUSH.W      #0xC0
+             call      #Lcd_cmd
+             jmp       Ex
+             
+Vmin         cmp       #3,Stm3 ;The same as frequency
+             jnz       Ex
+             cmp       #'A',KP
+             jz        start
+             cmp       #'.',KP
+             jnz       WdigitVmin
+             PUSH.W      KP
+             call      #Lcd_data
+             mov       #1,Sdot
+             jmp       Ex
+WdigitVmin   cmp       #0,Sdot             
+             jnz       FVmin
+             cmp       #0,Cnt1
+             jz        Ex
+             mov       PVNW,R15
+             mov       KP,0(R15)
+             PUSH.W      KP
+             call      #Lcd_data
+             incd       PVNW
+             dec       Cnt1
+             jmp       Ex
+
+FVmin        cmp       #0,Cnt2
+             jz        Ex
+             mov       PVNF,R15
+             mov       KP,0(R15)
+             PUSH.W      KP
+             call      #Lcd_data
+             incd       PVNF
+             dec       Cnt2
+             jmp       Ex
+             
+
+start        
+             mov       Cnt2,CVminf 
+             mov       #2,Cnt2  ;Initialize counters, states and pointers and print to LCD
+             mov       #1,Cnt1
+             mov       #0,Sdot
+             mov       #Vminarrayw,PVNW
+             mov       #Vminarrayf,PVNF
+             mov       #4,Stm3
+             PUSH.W      #0x01
+             call      #Lcd_cmd
+             PUSH.W      PSbz1
+             call      #Wstr
+             PUSH.W      #0xC0
+             call      #Lcd_cmd
+             PUSH.W      PSbz2
+             call      #Wstr
+             PUSH.W    #0x0C
+             call      #Lcd_cmd
+             jmp       Ex
+
+
+
+
+Ex           bic.b     #0x0f,&P10OUT  ;Exit KEYPAD ISR
+             bic.b     #0x80,&P2IFG                ; reset of interrupt flag 
+             reti
+;------------------------------------------------------------------------------
+TB0_ISR
+;------------------------------------------------------------------------------
+
+gen          cmp   #1,SignalType  ; checks if PWM to insert correct number of samples
+             jnz   NotPWMWave
+             dec   R6
+             jnz   Startman
+             mov   #Samplearray,R12      ;initialize pointer to converted samples
+             mov   #2,R6
+             jmp   Startman
+
+NotPWMWave
+
+            dec    R6
+            jnz    Startman
+            mov    #Samplearray,R12     ;initialize pointer to converted samples
+            mov    #33,R6
+            
+             
+Startman    
+
+            mov    0(R12),R7; check 0(R12)
+            cmp   #0xfff,0(R12)  ;Checks if DAC has numerical errors and insert 0 to DAC if so
+            jge   cutoff
+            mov  0(R12),&DAC12_0DAT ; Moving sample to DAC
+            incd   R12
+            reti  ;Exit TB ISR
+cutoff      mov   #0x0,&DAC12_0DAT
+            incd   R12
+    
+    
+Nextsamp    reti ;Exit TB ISR
+            
+            
+;----------------------------------------------------------------------------------------------------------------
+Sin_Tab   				        ; table of data                
+;----------------------------------------------------------------------------------------------------------------
+             
+          
+               DW   2048
+               DW   2435
+               DW   2808
+               DW   3154
+               DW   3460
+               DW   3715
+               DW   3910
+               DW   4037
+               DW   4093
+               DW   4074
+               DW   3982
+               DW   3821
+               DW   3595
+               DW   3313
+               DW   2986
+               DW   2624
+               DW   2242
+               DW   1853
+               DW   1471
+               DW   1109
+               DW   782
+               DW   500
+               DW   274
+               DW   113
+               DW   21
+               DW   2
+               DW   58
+               DW   185
+               DW   380
+               DW   635
+               DW   941
+               DW   1287
+               DW   1660
+              
+   
+              
+;----------------------------------------------------------------------------------------------------------------
+Triangular_Tab   				        ; table of data                
+;----------------------------------------------------------------------------------------------------------------
+               
+               DW   512
+               DW   512
+               DW   768
+               DW   1024
+               DW   1280
+               DW   1536
+               DW   1792
+               DW   2048
+               DW   2303
+               DW   2559
+               DW   2815
+               DW   3071
+               DW   3327
+               DW   3583
+               DW   3839
+               DW   4095
+               DW   3839
+               DW   3583
+               DW   3327
+               DW   3071
+               DW   2815
+               DW   2559
+               DW   2303
+               DW   2048
+               DW   1792
+               DW   1536
+               DW   1280
+               DW   1024
+               DW   768
+               DW   512
+               DW   512
+               DW   0
+               
+
+;----------------------------------------------------------------------------------------------------------------
+Sawtooth_Tab   				        ; table of data                
+;----------------------------------------------------------------------------------------------------------------
+              
+              
+               DW   0
+               DW   124
+               DW   150
+               DW   372
+               DW   496
+               DW   620
+               DW   744
+               DW   868
+               DW   992
+               DW   1116
+               DW   1240
+               DW   1364
+               DW   1488
+               DW   1612
+               DW   1736
+               DW   1860
+               DW   1984
+               DW   2108
+               DW   2232
+               DW   2356
+               DW   2480
+               DW   2604
+               DW   2728
+               DW   2852
+               DW   2976
+               DW   3100
+               DW   3224
+               DW   3348
+               DW   3472
+               DW   3596
+               DW   3720
+               DW   3844
+               DW   3968
+               DW   4091
+;----------------------------------------------------------------------------------------------------------------
+PWM_Tab   				        ; table of data                
+;----------------------------------------------------------------------------------------------------------------              
+                DW   0
+                DW   4095
+;-------------------------------------------------------------------------------------------------------------------------------------------
+            COMMON  INTVEC                  ; Interrupt Vectors-Begins a common segment with name of INTVEC 
+;-------------------------------------------------------------------------------------------------------------------------------------------
+            ORG     RESET_VECTOR            ; MSP430 RESET Vector
+            DW      main  
+            ORG     PORT1_VECTOR            ;PORT2 Interrupt Vector
+            DW      PORT1_ISR
+            ORG     PORT2_VECTOR            ;PORT2 Keypad Interrupt Vector
+            DW      PORT2_ISR
+            ORG     TIMERB0_VECTOR
+            DW      TB0_ISR
+            
+              
+              
+              
+              
+              END

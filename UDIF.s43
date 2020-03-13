@@ -1,0 +1,395 @@
+#include  <msp430xG46x.h>
+
+    
+            MODULE UPDOWNI
+            EXTERN SubMainState,SSM1,PSI1,PSI2,PSI3,PSI4,PSI5,PSI6,PSI7,PSI8,PSI9
+            EXTERN PSI10,PSI11,PSI12,PSI13,PSI14,PSI15,PSI16,PSI17,PSI18,Lcd_strobe,Lcd_data,Lcd_cmd,Wstr
+           
+            PUBLIC UP,DOWN
+            
+;-------------------------------------------------------------------------------
+               RSEG    CODE                  
+;-------------------------------------------------------------------------------
+
+;This module checks different states in sub menu Instructions and scrolls up or down accordingly
+
+;-------------------------------------------------------------------------------
+;                               UP                  
+;-------------------------------------------------------------------------------
+
+UP           cmp       #0,SSM1
+             jnz       StateSm1_1U
+             PUSH.W      #0x01
+             call      #Lcd_cmd
+             PUSH.W      PSI17
+             call      #Wstr
+             PUSH.W      #0xC0         
+             call      #Lcd_cmd
+             PUSH.W      PSI18
+             call      #Wstr
+             mov       #12,SSM1
+             ret
+             
+
+StateSm1_1U   cmp       #1,SSM1
+             jnz       StateSm1_2U
+             PUSH.W      #0x01
+             call      #Lcd_cmd
+             PUSH.W      PSI1
+             call      #Wstr
+             PUSH.W      #0xC0         
+             call      #Lcd_cmd
+             PUSH.W      PSI2
+             call      #Wstr
+             mov       #0,SSM1
+             ret
+             
+
+StateSm1_2U   cmp       #2,SSM1
+             jnz       StateSm1_3U
+             PUSH.W      #0x01
+             call      #Lcd_cmd
+             PUSH.W      PSI3
+             call      #Wstr
+             PUSH.W      #0xC0         
+             call      #Lcd_cmd
+             PUSH.W      PSI4
+             call      #Wstr
+             mov       #1,SSM1
+             ret
+             
+
+StateSm1_3U   cmp       #3,SSM1
+             jnz       StateSm1_4U
+             PUSH.W      #0x01
+             call      #Lcd_cmd
+             PUSH.W      PSI5
+             call      #Wstr
+             PUSH.W      #0xC0         
+             call      #Lcd_cmd
+             PUSH.W      PSI6
+             call      #Wstr
+             mov       #2,SSM1
+             ret
+             
+
+StateSm1_4U   cmp       #4,SSM1
+             jnz       StateSm1_5U
+             PUSH.W      #0x01
+             call      #Lcd_cmd
+             PUSH.W      PSI7
+             call      #Wstr
+             PUSH.W      #0xC0         
+             call      #Lcd_cmd
+             PUSH.W      PSI8
+             call      #Wstr
+             mov       #3,SSM1
+             ret
+             
+
+StateSm1_5U   cmp       #5,SSM1
+             jnz       StateSm1_6U
+             PUSH.W      #0x01
+             call      #Lcd_cmd
+             PUSH.W      PSI9
+             call      #Wstr
+             PUSH.W      #0xC0         
+             call      #Lcd_cmd
+             PUSH.W      PSI10
+             call      #Wstr
+             mov       #4,SSM1
+             ret
+             
+
+StateSm1_6U   cmp       #6,SSM1
+             jnz       StateSm1_7U
+             PUSH.W      #0x01
+             call      #Lcd_cmd
+             PUSH.W      PSI10
+             call      #Wstr
+             PUSH.W      #0xC0         
+             call      #Lcd_cmd
+             PUSH.W      PSI11
+             call      #Wstr
+             mov       #5,SSM1
+             ret
+             
+
+StateSm1_7U   cmp       #7,SSM1
+             jnz       StateSm1_8U
+             PUSH.W      #0x01
+             call      #Lcd_cmd
+             PUSH.W      PSI11
+             call      #Wstr
+             PUSH.W      #0xC0         
+             call      #Lcd_cmd
+             PUSH.W      PSI12
+             call      #Wstr
+             mov       #6,SSM1
+             ret
+             
+
+StateSm1_8U   cmp       #8,SSM1
+             jnz       StateSm1_9U
+             PUSH.W      #0x01
+             call      #Lcd_cmd
+             PUSH.W      PSI12
+             call      #Wstr
+             PUSH.W      #0xC0         
+             call      #Lcd_cmd
+             PUSH.W      PSI13
+             call      #Wstr
+             mov       #7,SSM1
+             ret
+             
+
+StateSm1_9U   cmp       #9,SSM1
+             jnz       StateSm1_10U
+             PUSH.W      #0x01
+             call      #Lcd_cmd
+             PUSH.W      PSI13
+             call      #Wstr
+             PUSH.W      #0xC0         
+             call      #Lcd_cmd
+             PUSH.W      PSI14
+             call      #Wstr
+             mov       #8,SSM1
+             ret
+             
+
+StateSm1_10U  cmp       #10,SSM1
+             jnz       StateSm1_11U
+             PUSH.W      #0x01
+             call      #Lcd_cmd
+             PUSH.W      PSI14
+             call      #Wstr
+             PUSH.W      #0xC0         
+             call      #Lcd_cmd
+             PUSH.W      PSI15
+             call      #Wstr
+             mov       #9,SSM1
+             ret
+             
+
+StateSm1_11U  cmp       #11,SSM1
+             jnz       StateSm1_12U
+             PUSH.W      #0x01
+             call      #Lcd_cmd
+             PUSH.W      PSI15
+             call      #Wstr
+             PUSH.W      #0xC0         
+             call      #Lcd_cmd
+             PUSH.W      PSI16
+             call      #Wstr
+             mov       #10,SSM1
+             ret
+             
+
+StateSm1_12U  cmp       #12,SSM1
+             jnz       RU
+             PUSH      #0x01
+             call      #Lcd_cmd
+             PUSH.W      PSI16
+             call      #Wstr
+             PUSH.W      #0xC0         
+             call      #Lcd_cmd
+             PUSH.W      PSI17
+             call      #Wstr
+             mov       #11,SSM1
+RU             ret
+
+
+
+
+
+;-------------------------------------------------------------------------------
+;                               DOWN                 
+;-------------------------------------------------------------------------------
+
+
+DOWN         cmp       #0,SSM1
+             jnz       StateSm1_1
+             PUSH.W      #0x01
+             call      #Lcd_cmd
+             PUSH.W      PSI3
+             call      #Wstr
+             PUSH.W      #0xC0         
+             call      #Lcd_cmd
+             PUSH.W      PSI4
+             call      #Wstr
+             mov       #1,SSM1
+             ret
+             
+
+StateSm1_1   cmp       #1,SSM1
+             jnz       StateSm1_2
+             PUSH.W      #0x01
+             call      #Lcd_cmd
+             PUSH.W      PSI5
+             call      #Wstr
+             PUSH.W      #0xC0         
+             call      #Lcd_cmd
+             PUSH.W      PSI6
+             call      #Wstr
+             mov       #2,SSM1
+             ret
+             
+
+StateSm1_2   cmp       #2,SSM1
+             jnz       StateSm1_3
+             PUSH.W      #0x01
+             call      #Lcd_cmd
+             PUSH.W      PSI7
+             call      #Wstr
+             PUSH.W      #0xC0         
+             call      #Lcd_cmd
+             PUSH.W      PSI8
+             call      #Wstr
+             mov       #3,SSM1
+             ret
+             
+
+StateSm1_3   cmp       #3,SSM1
+             jnz       StateSm1_4
+             PUSH.W      #0x01
+             call      #Lcd_cmd
+             PUSH.W      PSI9
+             call      #Wstr
+             PUSH.W      #0xC0         
+             call      #Lcd_cmd
+             PUSH.W      PSI10
+             call      #Wstr
+             mov       #4,SSM1
+             ret
+             
+
+StateSm1_4   cmp       #4,SSM1
+             jnz       StateSm1_5
+             PUSH.W      #0x01
+             call      #Lcd_cmd
+             PUSH.W      PSI10
+             call      #Wstr
+             PUSH.W      #0xC0         
+             call      #Lcd_cmd
+             PUSH.W      PSI11
+             call      #Wstr
+             mov       #5,SSM1
+             ret
+             
+
+StateSm1_5   cmp       #5,SSM1
+             jnz       StateSm1_6
+             PUSH.W      #0x01
+             call      #Lcd_cmd
+             PUSH.W      PSI11
+             call      #Wstr
+             PUSH.W      #0xC0         
+             call      #Lcd_cmd
+             PUSH.W      PSI12
+             call      #Wstr
+             mov       #6,SSM1
+             ret
+             
+
+StateSm1_6   cmp       #6,SSM1
+             jnz       StateSm1_7
+             PUSH.W      #0x01
+             call      #Lcd_cmd
+             PUSH.W      PSI12
+             call      #Wstr
+             PUSH.W      #0xC0         
+             call      #Lcd_cmd
+             PUSH.W      PSI13
+             call      #Wstr
+             mov       #7,SSM1
+             ret
+             
+
+StateSm1_7   cmp       #7,SSM1
+             jnz       StateSm1_8
+             PUSH.W      #0x01
+             call      #Lcd_cmd
+             PUSH.W      PSI13
+             call      #Wstr
+             PUSH.W      #0xC0         
+             call      #Lcd_cmd
+             PUSH.W      PSI14
+             call      #Wstr
+             mov       #8,SSM1
+             ret
+             
+
+StateSm1_8   cmp       #8,SSM1
+             jnz       StateSm1_9
+             PUSH.W      #0x01
+             call      #Lcd_cmd
+             PUSH.W      PSI14
+             call      #Wstr
+             PUSH.W      #0xC0         
+             call      #Lcd_cmd
+             PUSH.W      PSI15
+             call      #Wstr
+             mov       #9,SSM1
+             ret
+             
+
+StateSm1_9   cmp       #9,SSM1
+             jnz       StateSm1_10
+             PUSH.W      #0x01
+             call      #Lcd_cmd
+             PUSH.W      PSI15
+             call      #Wstr
+             PUSH.W      #0xC0         
+             call      #Lcd_cmd
+             PUSH.W      PSI16
+             call      #Wstr
+             mov       #10,SSM1
+             ret
+             
+
+StateSm1_10  cmp       #10,SSM1
+             jnz       StateSm1_11
+             PUSH.W      #0x01
+             call      #Lcd_cmd
+             PUSH.W      PSI16
+             call      #Wstr
+             PUSH.W      #0xC0         
+             call      #Lcd_cmd
+             PUSH.W      PSI17
+             call      #Wstr
+             mov       #11,SSM1
+             ret
+             
+
+StateSm1_11  cmp       #11,SSM1
+             jnz       StateSm1_12
+             PUSH.W      #0x01
+             call      #Lcd_cmd
+             PUSH.W      PSI17
+             call      #Wstr
+             PUSH.W      #0xC0         
+             call      #Lcd_cmd
+             PUSH.W      PSI18
+             call      #Wstr
+             mov       #12,SSM1
+             ret
+             
+
+StateSm1_12  cmp       #12,SSM1
+             jnz       RD
+             PUSH.W      #0x01
+             call      #Lcd_cmd
+             PUSH.W      PSI1
+             call      #Wstr
+             PUSH.W      #0xC0         
+             call      #Lcd_cmd
+             PUSH.W      PSI2
+             call      #Wstr
+             mov       #0,SSM1
+RD           ret
+
+
+
+
+            ENDMOD              
+             END
